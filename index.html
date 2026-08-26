@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base target="_top">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root{
+    --bg:#170F0A; --panel:#241A10; --panel-2:#2E2013; --border:#4A3218;
+    --fg:#FBEEDD; --muted:#C9AA85;
+    --good:#4FD08E; --warn:#F0B84E; --bad:#F0664F; --info:#F2A65A; --accent:#FF8A3D; --violet:#B78EE0; --blue:#7FB2FF;
+  }
+  body[data-theme="original"]{
+    --bg:#0A1628; --panel:#0F2038; --panel-2:#15294A; --border:#26436E;
+    --fg:#F5F8FC; --muted:#9FB3CC;
+    --good:#3FD08E; --warn:#F0B84E; --bad:#F0664F; --info:#7FB2FF; --accent:#4FA8FF; --violet:#B78EE0; --blue:#7FB2FF;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0;}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:'IBM Plex Sans Arabic',Tahoma,sans-serif;
+    font-size:14px;
+    transition:background .2s, color .2s;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{min-height:100vh; display:flex; flex-direction:column; padding:16px 20px; gap:14px;}
+
+  .toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-16px);background:var(--panel);
+    border:1px solid var(--border);color:var(--fg);padding:12px 22px;border-radius:12px;font-size:13px;font-weight:700;
+    box-shadow:0 14px 34px rgba(0,0,0,.5);z-index:10000;opacity:0;pointer-events:none;transition:.25s;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.success{border-color:var(--good);color:var(--good);}
+  .toast.error{border-color:var(--bad);color:var(--bad);}
+
+  .top{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  .top h1{font-size:19px; margin:0; color:var(--accent);}
+  .top .sub{font-size:11.5px; color:var(--muted); margin-top:3px;}
+  .actions{display:flex; align-items:center; gap:8px;}
+  .btn{
+    background:var(--panel-2); color:var(--fg); border:1px solid var(--border);
+    border-radius:8px; padding:8px 14px; font-family:inherit; font-size:12.5px; cursor:pointer;
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn:disabled{opacity:.6; cursor:not-allowed;}
+
+  .tabs{display:flex; gap:6px; flex-wrap:wrap;}
+  .tab-btn{
+    background:transparent; color:var(--muted); border:1px solid var(--border);
+    border-radius:8px; padding:8px 18px; font-size:13px; cursor:pointer; font-family:inherit;
+  }
+  .tab-btn.active{background:var(--accent); color:#1a0f00; border-color:var(--accent); font-weight:700;}
+
+  .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;}
+  .kpi{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; display:flex; flex-direction:column; gap:5px;
+    cursor:pointer; transition:all .2s ease;
+  }
+  .kpi:hover{border-color:var(--accent); transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.35);}
+  .kpi .label{font-size:11px; color:var(--muted);}
+  .kpi .value{font-size:24px; font-weight:700;}
+  .kpi .hint{font-size:10px; color:var(--accent);}
+
+  .panel{display:none; flex-direction:column; gap:14px;}
+  .panel.active{display:flex;}
+
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .grid-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .grid-full{display:grid; grid-template-columns:1fr; gap:14px;}
+
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px;}
+  .card h2{font-size:13px; margin:0 0 12px; color:var(--muted); font-weight:600;}
+  .card canvas{max-height:280px;}
+
+  .ncr-strip{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:14px;
+  }
+  .ncr-strip .item{text-align:center;}
+  .ncr-strip .k{font-size:10.5px; color:var(--accent);}
+  .ncr-strip .v{font-size:14px; font-weight:700; margin-top:4px;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:right; color:var(--muted); font-weight:600; padding:9px 8px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--panel);}
+  td{padding:9px 8px; border-bottom:1px solid var(--border);}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover{background:var(--panel-2);}
+  .scroll-y{max-height:360px; overflow-y:auto;}
+  .searchbar{margin-bottom:10px;}
+  .searchbar input{
+    width:100%; background:var(--panel-2); color:var(--fg); border:1px solid var(--border);
+    border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;
+  }
+  .empty{text-align:center; color:var(--muted); padding:30px; font-size:12.5px;}
+
+  .tag{padding:3px 9px; border-radius:6px; font-size:11px; font-weight:600; display:inline-block;}
+  .tag.good{background:rgba(79,208,142,.18); color:var(--good);}
+  .tag.warn{background:rgba(240,184,78,.18); color:var(--warn);}
+  .tag.bad{background:rgba(240,102,79,.18); color:var(--bad);}
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-box{
+    background:var(--panel); border:1px solid var(--border); border-radius:16px;
+    width:600px; max-width:100%; max-height:82vh; overflow-y:auto;
+    padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal-title{font-size:16px; font-weight:700; margin-bottom:16px; color:var(--accent); display:flex; justify-content:space-between; align-items:center;}
+  .modal-close-x{cursor:pointer; color:var(--muted); font-size:18px; background:none; border:none;}
+  .modal-row{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); gap:10px;}
+  .modal-row:last-child{border-bottom:none;}
+  .modal-label{color:var(--muted); font-size:12px; white-space:nowrap;}
+  .modal-value{font-weight:600; font-size:13px; text-align:left; word-break:break-word;}
+  .modal-close{
+    background:var(--accent); color:#1a0f00; border:none; border-radius:8px;
+    padding:9px 20px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+    margin-top:16px; width:100%;
+  }
+  .modal-close:hover{opacity:.9;}
+  .modal-list-item{
+    background:var(--panel-2); border-radius:8px; padding:10px 12px; margin-bottom:6px; font-size:12.5px;
+    display:flex; justify-content:space-between; gap:10px;
+  }
+  .modal-note{font-size:11.5px; color:var(--warn); margin-top:10px; margin-bottom:6px;}
+
+  .loading{text-align:center; padding:80px; color:var(--muted);}
+  .charts-note{
+    display:none; background:#4a3a1a; color:#f2c76b; padding:10px 14px;
+    border-radius:8px; font-size:12px; margin-bottom:14px;
+  }
+
+  /* ===== FINISH OPS styles ===== */
+  .slicers{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px;}
+  .slicer-group{display:flex; flex-direction:column; gap:6px;}
+  .slicer-group label{font-size:11px; color:var(--muted); font-weight:700;}
+  .chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{background:var(--panel-2); border:1px solid var(--border); color:var(--muted);
+    font-family:inherit; font-weight:700; font-size:12px; padding:8px 14px; border-radius:9px; cursor:pointer;}
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{background:rgba(255,138,61,.16); border-color:var(--accent); color:var(--accent);}
+  .field-input{background:var(--panel-2); border:1px solid var(--border); color:var(--fg);
+    font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 10px; border-radius:9px; outline:none;}
+  .field-input:focus{border-color:var(--accent);}
+  .search-wrap input{width:210px;}
+  .clear-btn{margin-inline-start:auto; background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:inherit; font-size:12px; font-weight:700; padding:8px 14px; border-radius:9px; cursor:pointer; align-self:flex-end;}
+  .clear-btn:hover{color:var(--bad); border-color:var(--bad);}
+
+  .kpi-grid-7{display:grid; grid-template-columns:repeat(7,1fr); gap:10px;}
+  @media(max-width:1300px){.kpi-grid-7{grid-template-columns:repeat(4,1fr);}}
+  @media(max-width:640px){.kpi-grid-7{grid-template-columns:repeat(2,1fr);}}
+  .kpi-mini{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; position:relative; overflow:hidden;}
+  .kpi-mini::before{content:''; position:absolute; top:0; right:0; left:0; height:3px; background:var(--k-accent, var(--accent));}
+  .kpi-mini .k-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .kpi-mini .k-label{font-size:10.5px; color:var(--muted); font-weight:700;}
+  .kpi-mini .k-val{font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700;}
+  .kpi-mini .k-sub{font-size:10px; color:var(--muted); margin-top:3px;}
+
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;}
+  .badge.done{background:rgba(79,208,142,.16); color:var(--good); border:1px solid rgba(79,208,142,.3);}
+  .badge.pending{background:rgba(240,184,78,.16); color:var(--warn); border:1px solid rgba(240,184,78,.3);}
+  .badge.hold{background:rgba(240,102,79,.16); color:var(--bad); border:1px solid rgba(240,102,79,.3);}
+  .badge.other{background:rgba(201,170,133,.16); color:var(--muted); border:1px solid rgba(201,170,133,.3);}
+  th[data-sortkey]{cursor:pointer; user-select:none;}
+  th[data-sortkey]:hover{color:var(--accent);}
+  .arrow{opacity:.6; font-size:10px; margin-inline-start:4px;}
+
+  @media (max-width:900px){
+    .grid-2, .grid-3{grid-template-columns:1fr;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body data-theme="orange">
+<div class="wrap">
+  <div class="toast" id="foToast"></div>
+
+  <div class="top">
+    <div>
+      <h1>📊 لوحة المؤشرات - Operations Dashboard</h1>
+      <div class="sub" id="meta">جاري التحميل...</div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="themeToggle" onclick="toggleTheme()">🔵 الثيم الأصلي</button>
+      <button class="btn" onclick="loadData()">🔄 تحديث</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabsNav" style="display:none;">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">نظرة عامة</button>
+    <button class="tab-btn" data-tab="ports" onclick="switchTab('ports')">الموانئ والمشتريات</button>
+    <button class="tab-btn" data-tab="marine" onclick="switchTab('marine')">أداء المناديب</button>
+    <button class="tab-btn" data-tab="ncr" onclick="switchTab('ncr')">تحليل NCR</button>
+    <button class="tab-btn" data-tab="finishops" onclick="switchTab('finishops')">FINISH OPS</button>
+  </div>
+
+  <div id="content"><div class="loading">جاري تحميل البيانات...</div></div>
+</div>
+
+<div class="modal-overlay" id="detailModal" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">
+      <span id="modalTitle">التفاصيل</span>
+      <button class="modal-close-x" onclick="closeModalNow()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+    <button class="modal-close" onclick="closeModalNow()">إغلاق</button>
+  </div>
+</div>
+
+<script>
+let DATALABELS_AVAILABLE = false;
+try {
+  if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    DATALABELS_AVAILABLE = true;
+  }
+} catch (e) { DATALABELS_AVAILABLE = false; }
+
+let DATA = null;
+let charts = {};
+let activeTab = 'overview';
+let chartsAvailable = (typeof Chart !== 'undefined');
+
+function palette(){
+  const isOrange = document.body.getAttribute('data-theme') === 'orange';
+  return isOrange
+    ? ['#FF8A3D', '#4FD08E', '#F0B84E', '#F0664F', '#B78EE0', '#7FB2FF', '#F29B4B', '#5CD6A9']
+    : ['#4FA8FF', '#3FD08E', '#F0B84E', '#F0664F', '#B78EE0', '#F29B4B', '#7FB2FF', '#5CD6A9'];
+}
+
+function esc(s){ return (s === null || s === undefined || s === '') ? '-' : String(s); }
+
+function isCurrentMonth(ts){
+  if (!ts) return false;
+  const now = new Date();
+  const d = new Date(ts);
+  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+function toggleTheme(){
+  const body = document.body;
+  const isOrange = body.getAttribute('data-theme') === 'orange';
+  body.setAttribute('data-theme', isOrange ? 'original' : 'orange');
+  document.getElementById('themeToggle').innerText = isOrange ? '🧡 الثيم البرتقالي' : '🔵 الثيم الأصلي';
+  if (DATA) renderTab(activeTab);
+}
+
+function loadData(){
+  document.getElementById('content').innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
+  document.getElementById('tabsNav').style.display = 'none';
+  google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onDataError).getDashboardData();
+}
+
+function onDataError(err){
+  document.getElementById('content').innerHTML = '<div class="loading" style="color:var(--bad)">حصل خطأ: ' + err.message + '</div>';
+}
+
+function onDataLoaded(data){
+  if (data.errors && data.errors.length){
+    document.getElementById('content').innerHTML =
+      '<div class="loading" style="color:var(--bad); text-align:right; white-space:pre-wrap;">أخطاء:\n' + data.errors.join('\n') + '</div>';
+    return;
+  }
+  DATA = data;
+  document.getElementById('meta').innerText = 'آخر تحديث: ' + data.generatedAt;
+  document.getElementById('tabsNav').style.display = 'flex';
+  buildLayout();
+  renderMarineTable();
+  renderNcrTable();
+  renderTab(activeTab);
+}
+
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  renderTab(tab);
+}
+
+function buildLayout(){
+  document.getElementById('content').innerHTML = `
+    <div class="charts-note" id="chartsNote">⚠️ مكتبة الرسوم البيانية مش عارفة تتحمل من الشبكة دي حاليًا - الأرقام والجداول لسه صحيحة ومظبوطة</div>
+
+    <div class="kpi-grid">
+      <div class="kpi" onclick="openKpiModal('total')">
+        <div class="label">إجمالي المراكب (السنة)</div>
+        <div class="value">${DATA.totalVesselsYTD}</div>
+        <div class="hint">اضغط للتفاصيل</div>
+      </div>
+      <div class="kpi" onclick="openKpiModal('ncrMonthly')">
+        <div class="label">إجمالي NCR (الشهر)</div>
+        <div class="value">${DATA.ncrSummary.monthly}</div>
+        <div class="hint">اضغط للتفاصيل</div>
+      </div>
+      <div class="kpi" onclick="openKpiModal('affected')">
+        <div class="label">مراكب متأثرة بـ NCR (السنوي)</div>
+        <div class="value">${DATA.affectedVessels}</div>
+        <div class="hint">اضغط للتفاصيل</div>
+      </div>
+      <div class="kpi" onclick="openKpiModal('workload')">
+        <div class="label">توازن الحمل الوظيفي</div>
+        <div class="value">${esc(DATA.workload.status)}</div>
+        <div class="hint">اضغط للتفاصيل</div>
+      </div>
+    </div>
+
+    <div class="panel active" id="panel-overview">
+      <div class="grid-full">
+        <div class="card"><h2>اتجاه عدد المراكب شهريًا (2026)</h2><canvas id="chart_trend"></canvas></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h2>توزيع الموانئ (سنوي) - اضغط على أي عمود لعرض المراكب</h2><canvas id="chart_ports_ov"></canvas></div>
+        <div class="card"><h2>توزيع المشتريات (سنوي) - اضغط على أي عمود لعرض المراكب</h2><canvas id="chart_purchase_ov"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-ports">
+      <div class="grid-2">
+        <div class="card"><h2>توزيع الموانئ - اضغط للتفاصيل</h2><canvas id="chart_ports"></canvas></div>
+        <div class="card"><h2>توزيع المشتريات - اضغط للتفاصيل</h2><canvas id="chart_purchase"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-marine">
+      <div class="grid-2">
+        <div class="card"><h2>عدد المراكب والأصناف لكل مندوب (الشهر الحالي) - اضغط للتفاصيل</h2><canvas id="chart_marine"></canvas></div>
+        <div class="card">
+          <h2>تفاصيل المناديب - اضغط على أي صف للتفاصيل</h2>
+          <div class="scroll-y">
+            <table>
+              <thead><tr><th>المندوب</th><th>مراكب</th><th>أصناف</th><th>متوسط/مركب</th></tr></thead>
+              <tbody id="marineTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-ncr">
+      <div class="ncr-strip">
+        <div class="item"><div class="k">أكتر مشكلة</div><div class="v">${esc(DATA.ncrSummary.mostIssue)}</div></div>
+        <div class="item"><div class="k">أكتر قسم</div><div class="v">${esc(DATA.ncrSummary.mostDept)}</div></div>
+        <div class="item"><div class="k">أكتر سبب جذري</div><div class="v">${esc(DATA.ncrSummary.mostRootCause)}</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h2>أهم أسباب الـ NCR - اضغط على أي عمود لعرض الحالات</h2><canvas id="chart_rootcause"></canvas></div>
+        <div class="card"><h2>توزيع الأقسام - اضغط على أي عمود لعرض الحالات</h2><canvas id="chart_dept"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>كل حالات NCR (اضغط على أي صف للتفاصيل الكاملة)</h2>
+        <div class="searchbar"><input type="text" id="ncrSearch" placeholder="ابحث برقم NCR، اسم المركب، القسم، أو السبب..." oninput="renderNcrTable()"></div>
+        <div class="scroll-y">
+          <table>
+            <thead><tr><th>رقم NCR</th><th>التاريخ</th><th>المركب</th><th>القسم</th><th>السبب الجذري</th><th>المسؤول</th></tr></thead>
+            <tbody id="ncrTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-finishops">
+      <div id="finishOpsLoading" class="loading">جاري تحميل بيانات FINISH OPS...</div>
+      <div id="finishOpsContent" style="display:none; flex-direction:column; gap:14px;">
+
+        <div style="display:flex; justify-content:flex-end;">
+          <button class="btn" id="foExportBtn" onclick="exportFinishOpsExcel()">⬇️ تحديث ملف الإكسيل</button>
+        </div>
+
+        <div class="slicers">
+          <div class="slicer-group">
+            <label>الحالة</label>
+            <div class="chip-row" id="foStateChips">
+              <button class="chip active" data-state="all">الكل</button>
+              <button class="chip" data-state="done">✅ منتهي</button>
+              <button class="chip" data-state="pending">⏳ لسه هيتم</button>
+              <button class="chip" data-state="hold">⚠️ معلّق (Hold)</button>
+            </div>
+          </div>
+          <div class="slicer-group">
+            <label>من تاريخ</label>
+            <input type="date" class="field-input" id="foDateFrom">
+          </div>
+          <div class="slicer-group">
+            <label>إلى تاريخ</label>
+            <input type="date" class="field-input" id="foDateTo">
+          </div>
+          <div class="slicer-group search-wrap">
+            <label>بحث</label>
+            <input type="text" class="field-input" id="foSearch" placeholder="اسم المركب أو رقم العملية">
+          </div>
+          <button class="clear-btn" id="foClearBtn">مسح الفلاتر</button>
+        </div>
+
+        <div class="kpi-grid-7">
+          <div class="kpi-mini" style="--k-accent:var(--blue)">
+            <div class="k-top"><span class="k-label">إجمالي المراكب</span><span>🚢</span></div>
+            <div class="k-val mono" id="foKpiTotal">–</div>
+            <div class="k-sub">داخل نطاق الفلتر الحالي</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--good)">
+            <div class="k-top"><span class="k-label">منتهي</span><span>✅</span></div>
+            <div class="k-val mono" id="foKpiDone">–</div>
+            <div class="k-sub" id="foKpiDonePct">–</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--warn)">
+            <div class="k-top"><span class="k-label">لسه هيتم</span><span>⏳</span></div>
+            <div class="k-val mono" id="foKpiPending">–</div>
+            <div class="k-sub" id="foKpiPendingPct">–</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--bad)">
+            <div class="k-top"><span class="k-label">معلّق</span><span>⚠️</span></div>
+            <div class="k-val mono" id="foKpiHold">–</div>
+            <div class="k-sub" id="foKpiHoldPct">–</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--blue)">
+            <div class="k-top"><span class="k-label">مراكب اليوم</span><span>📅</span></div>
+            <div class="k-val mono" id="foKpiToday">–</div>
+            <div class="k-sub">حسب تاريخ الإرسال</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--good)">
+            <div class="k-top"><span class="k-label">متوسط وقت الإنجاز</span><span>⏱️</span></div>
+            <div class="k-val mono" id="foKpiAvg">–</div>
+            <div class="k-sub">لكل مركب متسجل له الوقتين</div>
+          </div>
+          <div class="kpi-mini" style="--k-accent:var(--violet)">
+            <div class="k-top"><span class="k-label">أطول وقت إنجاز</span><span>🔺</span></div>
+            <div class="k-val mono" id="foKpiMax">–</div>
+            <div class="k-sub" id="foKpiMaxVessel">–</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card"><h2>وقت الإنجاز لكل مركب (أعلى 15)</h2><canvas id="fo_chart_duration"></canvas></div>
+          <div class="card"><h2>عدد المراكب يوميًا (آخر 14 يوم)</h2><canvas id="fo_chart_daily"></canvas></div>
+        </div>
+        <div class="grid-full">
+          <div class="card" style="max-width:420px; margin:0 auto;"><h2>توزيع الحالة</h2><canvas id="fo_chart_state"></canvas></div>
+        </div>
+
+        <div class="card">
+          <h2>سجل كل المراكب (History)</h2>
+          <div class="scroll-y">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sortkey="name">اسم المركب<span class="arrow" id="fo-arrow-name"></span></th>
+                  <th data-sortkey="ops">رقم العملية<span class="arrow" id="fo-arrow-ops"></span></th>
+                  <th data-sortkey="state">الحالة<span class="arrow" id="fo-arrow-state"></span></th>
+                  <th data-sortkey="email">وقت الإرسال<span class="arrow" id="fo-arrow-email"></span></th>
+                  <th data-sortkey="finish">وقت الإنجاز<span class="arrow" id="fo-arrow-finish"></span></th>
+                  <th data-sortkey="duration">المدة<span class="arrow" id="fo-arrow-duration"></span></th>
+                </tr>
+              </thead>
+              <tbody id="foTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const note = document.getElementById('chartsNote');
+  if (note) note.style.display = chartsAvailable ? 'none' : 'block';
+
+  document.getElementById('foStateChips').addEventListener('click', e => {
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    document.querySelectorAll('#foStateChips .chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    foFilters.state = btn.dataset.state;
+    renderFinishOpsAll();
+  });
+  document.getElementById('foDateFrom').addEventListener('change', e => { foFilters.from = e.target.value; renderFinishOpsAll(); });
+  document.getElementById('foDateTo').addEventListener('change', e => { foFilters.to = e.target.value; renderFinishOpsAll(); });
+  document.getElementById('foSearch').addEventListener('input', e => { foFilters.q = e.target.value.trim(); renderFinishOpsAll(); });
+  document.getElementById('foClearBtn').addEventListener('click', () => {
+    foFilters = { state: 'all', from: '', to: '', q: '' };
+    document.getElementById('foDateFrom').value = '';
+    document.getElementById('foDateTo').value = '';
+    document.getElementById('foSearch').value = '';
+    document.querySelectorAll('#foStateChips .chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('#foStateChips .chip[data-state="all"]').classList.add('active');
+    renderFinishOpsAll();
+  });
+  document.querySelectorAll('#panel-finishops thead th[data-sortkey]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sortkey;
+      if (foSortKey === key) foSortDir = foSortDir === 'asc' ? 'desc' : 'asc';
+      else { foSortKey = key; foSortDir = (key === 'name' || key === 'ops') ? 'asc' : 'desc'; }
+      renderFinishOpsAll();
+    });
+  });
+}
+
+function renderTab(tab){
+  if (tab === 'finishops') {
+    loadFinishOpsIfNeeded();
+    return;
+  }
+  if (!chartsAvailable) return;
+
+  Object.keys(charts).forEach(k => { if (k.indexOf('fo_') !== 0 && charts[k]) { charts[k].destroy(); delete charts[k]; } });
+
+  try {
+    if (tab === 'overview'){
+      drawLineChart('chart_trend', DATA.monthlyTrend.map(m=>m.month), DATA.monthlyTrend.map(m=>m.vessels));
+      drawHBarChart('chart_ports_ov', DATA.portsYTD, 'port', 0);
+      drawHBarChart('chart_purchase_ov', DATA.purchaseUsersYTD, 'purchase', 1);
+    } else if (tab === 'ports'){
+      drawHBarChart('chart_ports', DATA.portsYTD, 'port', 0);
+      drawHBarChart('chart_purchase', DATA.purchaseUsersYTD, 'purchase', 1);
+    } else if (tab === 'marine'){
+      drawMarineChart();
+    } else if (tab === 'ncr'){
+      drawBarChart('chart_rootcause', DATA.rootCauses.map(r=>r.name), DATA.rootCauses.map(r=>r.count), 'rootcause');
+      drawHBarChart('chart_dept', DATA.departments.map(d=>({name:d.name, vessels:d.count})), 'department', 2);
+    }
+  } catch (e) {}
+}
+
+function themeVars(){
+  const t = document.body.getAttribute('data-theme');
+  return {
+    text: t === 'orange' ? '#FBEEDD' : '#F5F8FC',
+    grid: t === 'orange' ? '#4A3218' : '#26436E'
+  };
+}
+
+function dataLabelConfig(){
+  return { anchor: 'end', align: 'end', offset: 4, color: themeVars().text, font: { weight: '700', size: 11 }, formatter: (value) => value };
+}
+
+function drawLineChart(id, labels, values){
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const t = themeVars(); const PALETTE = palette();
+  const plugins = { legend: { display: false } };
+  if (DATALABELS_AVAILABLE) plugins.datalabels = { align: 'top', anchor: 'end', offset: 6, color: t.text, font: { weight: '700', size: 11 }, formatter: (value) => value };
+  charts[id] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: [{ data: values, borderColor: PALETTE[0], backgroundColor: PALETTE[0] + '26', fill: true, tension: .3, pointRadius: 4 }] },
+    options: { plugins: plugins, scales: { x: { ticks: { color: t.text }, grid: { color: t.grid } }, y: { ticks: { color: t.text }, grid: { color: t.grid } } } }
+  });
+}
+
+function drawHBarChart(id, items, kind, colorIdx){
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const t = themeVars(); const PALETTE = palette();
+  const sorted = items.slice().sort((a, b) => b.vessels - a.vessels);
+  const labels = sorted.map(i => i.name);
+  const values = sorted.map(i => i.vessels);
+  const plugins = { legend: { display: false } };
+  if (DATALABELS_AVAILABLE) plugins.datalabels = dataLabelConfig();
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: PALETTE[colorIdx] }] },
+    options: {
+      indexAxis: 'y', plugins: plugins,
+      scales: { x: { ticks: { color: t.text }, grid: { color: t.grid } }, y: { ticks: { color: t.text }, grid: { color: t.grid } } },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const idx = elements[0].index; const name = labels[idx];
+        if (kind === 'port') openPortModal(name);
+        else if (kind === 'purchase') openPurchaseModal(name);
+        else if (kind === 'department') openDepartmentModal(name);
+      }
+    }
+  });
+}
+
+function drawBarChart(id, labels, values, kind){
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const t = themeVars(); const PALETTE = palette();
+  const plugins = { legend: { display: false } };
+  if (DATALABELS_AVAILABLE) plugins.datalabels = dataLabelConfig();
+  charts[id] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: PALETTE[3] }] },
+    options: {
+      indexAxis: 'y', plugins: plugins,
+      scales: { x: { ticks: { color: t.text }, grid: { color: t.grid } }, y: { ticks: { color: t.text }, grid: { color: t.grid } } },
+      onClick: (evt, elements) => { if (!elements.length) return; const idx = elements[0].index; if (kind === 'rootcause') openRootCauseModal(labels[idx]); }
+    }
+  });
+}
+
+function drawMarineChart(){
+  const ctx = document.getElementById('chart_marine');
+  if (!ctx) return;
+  const t = themeVars(); const PALETTE = palette();
+  const labels = DATA.marineUsers.map(m => m.name);
+  const plugins = { legend: { position: 'top', labels: { color: t.text } } };
+  if (DATALABELS_AVAILABLE) plugins.datalabels = { anchor: 'end', align: 'top', offset: 2, color: t.text, font: { weight: '700', size: 10 }, formatter: (value) => value };
+  charts['chart_marine'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: labels, datasets: [
+      { label: 'مراكب', data: DATA.marineUsers.map(m => m.vessels), backgroundColor: PALETTE[0] },
+      { label: 'أصناف', data: DATA.marineUsers.map(m => m.items), backgroundColor: PALETTE[1] }
+    ] },
+    options: {
+      plugins: plugins,
+      scales: { x: { ticks: { color: t.text }, grid: { color: t.grid } }, y: { ticks: { color: t.text }, grid: { color: t.grid } } },
+      onClick: (evt, elements) => { if (!elements.length) return; const idx = elements[0].index; openMarineModal(labels[idx]); }
+    }
+  });
+}
+
+function renderMarineTable(){
+  const body = document.getElementById('marineTableBody');
+  if (!body) return;
+  body.innerHTML = DATA.marineUsers.map(m => `
+    <tr class="clickable" onclick="openMarineModal('${m.name.replace(/'/g,"\\'")}')">
+      <td>${esc(m.name)}</td><td>${esc(m.vessels)}</td><td>${esc(m.items)}</td><td>${esc(m.avgItemsPerVessel)}</td>
+    </tr>
+  `).join('');
+}
+
+function renderNcrTable(){
+  const body = document.getElementById('ncrTableBody');
+  if (!body) return;
+  const searchEl = document.getElementById('ncrSearch');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  let rows = DATA.ncrAll;
+  if (q){
+    rows = rows.filter(r =>
+      r.number.toLowerCase().includes(q) || r.vessel.toLowerCase().includes(q) ||
+      r.department.toLowerCase().includes(q) || r.rootCause.toLowerCase().includes(q) || r.responsible.toLowerCase().includes(q)
+    );
+  }
+  rows = rows.slice(0, 100);
+  body.innerHTML = rows.length ? rows.map(n => `
+    <tr class="clickable" onclick='openNcrDetailModal(${JSON.stringify(n.number)})'>
+      <td>${esc(n.number)}</td><td>${esc(n.date)}</td><td>${esc(n.vessel)}</td><td>${esc(n.department)}</td><td>${esc(n.rootCause)}</td><td>${esc(n.responsible)}</td>
+    </tr>
+  `).join('') : '<tr><td colspan="6" class="empty">لا توجد نتائج</td></tr>';
+}
+
+function openModal(title, bodyHtml){
+  document.getElementById('modalTitle').innerText = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('detailModal').classList.add('active');
+}
+function closeModal(evt){ if (evt.target.id === 'detailModal') closeModalNow(); }
+function closeModalNow(){ document.getElementById('detailModal').classList.remove('active'); }
+function modalRow(label, value){ return `<div class="modal-row"><span class="modal-label">${esc(label)}</span><span class="modal-value">${esc(value)}</span></div>`; }
+
+function openKpiModal(type){
+  if (type === 'total'){
+    let html = DATA.purchaseUsersYTD.map(p => modalRow(p.name, p.vessels + ' مركب')).join('');
+    html += modalRow('الإجمالي', DATA.totalVesselsYTD + ' مركب');
+    openModal('توزيع إجمالي المراكب حسب المشتري', html);
+  } else if (type === 'ncrMonthly'){
+    const rows = DATA.ncrAll.filter(n => isCurrentMonth(n.dateTimestamp));
+    const html = rows.length ? rows.map(n => `<div class="modal-list-item"><span>${esc(n.vessel)} (${esc(n.date)})</span><span>${esc(n.rootCause)}</span></div>`).join('')
+      : '<div class="empty">مفيش حالات NCR في الشهر الحالي</div>';
+    openModal('حالات NCR - الشهر الحالي (' + DATA.ncrSummary.monthly + ')', html);
+  } else if (type === 'affected'){
+    let html = DATA.rootCauses.map(r => modalRow(r.name, r.count + ' حالة')).join('');
+    openModal('أهم الأسباب المؤدية لتأثر المراكب (' + DATA.affectedVessels + ' مركب)', html);
+  } else if (type === 'workload'){
+    let html = modalRow('حالة التوازن', DATA.workload.status);
+    html += modalRow('نسبة التفاوت', DATA.workload.imbalance + '%');
+    html += modalRow('متوسط الأيام لكل مركب', DATA.workload.avgDaysPerVessel);
+    openModal('تفاصيل توازن الحمل الوظيفي', html);
+  }
+}
+
+function openPortModal(portName){
+  const allVessels = (DATA.vessels || []).filter(v => v.port === portName);
+  const currentMonthVessels = allVessels.filter(v => isCurrentMonth(v.etaTimestamp));
+  const vessels = currentMonthVessels.length > 0 ? currentMonthVessels : allVessels;
+  const isFallback = currentMonthVessels.length === 0 && allVessels.length > 0;
+  let html = isFallback ? '<div class="modal-note">مفيش مراكب في الشهر الحالي لهذا الميناء - بيعرض آخر المراكب المسجلة</div>' : '';
+  html += vessels.length ? vessels.slice(0, 30).map(v => `<div class="modal-list-item"><span>${esc(v.vessel)}</span><span>${esc(v.eta)} - ${esc(v.purchaseUser)}</span></div>`).join('') : '<div class="empty">لا توجد بيانات تفصيلية لهذا الميناء</div>';
+  openModal('مراكب ميناء ' + portName + ' (' + vessels.length + ')', html);
+}
+
+function openPurchaseModal(userName){
+  const allVessels = (DATA.vessels || []).filter(v => v.purchaseUser === userName);
+  const currentMonthVessels = allVessels.filter(v => isCurrentMonth(v.etaTimestamp));
+  const vessels = currentMonthVessels.length > 0 ? currentMonthVessels : allVessels;
+  const isFallback = currentMonthVessels.length === 0 && allVessels.length > 0;
+  let html = isFallback ? '<div class="modal-note">مفيش مراكب في الشهر الحالي - بيعرض آخر المراكب المسجلة</div>' : '';
+  html += vessels.length ? vessels.slice(0, 30).map(v => `<div class="modal-list-item"><span>${esc(v.vessel)}</span><span>${esc(v.eta)} - ${esc(v.port)}</span></div>`).join('') : '<div class="empty">لا توجد بيانات تفصيلية</div>';
+  openModal('مراكب ' + userName + ' (' + vessels.length + ')', html);
+}
+
+function openMarineModal(userName){
+  const marine = DATA.marineUsers.find(m => m.name === userName);
+  const allVessels = (DATA.vessels || []).filter(v => v.marineUser === userName);
+  const currentMonthVessels = allVessels.filter(v => isCurrentMonth(v.etaTimestamp));
+  const vessels = currentMonthVessels.length > 0 ? currentMonthVessels : allVessels;
+  const isFallback = currentMonthVessels.length === 0 && allVessels.length > 0;
+  let html = '';
+  if (marine){
+    html += modalRow('عدد المراكب (الشهر الحالي)', marine.vessels);
+    html += modalRow('عدد الأصناف', marine.items);
+    html += modalRow('متوسط الأصناف لكل مركب', marine.avgItemsPerVessel);
+  }
+  html += `<div style="margin-top:14px; font-size:12px; color:var(--muted);">قائمة المراكب - الشهر الحالي:</div>`;
+  if (isFallback) html += '<div class="modal-note">مفيش مراكب في الشهر الحالي - بيعرض آخر المراكب المسجلة</div>';
+  html += vessels.length ? vessels.slice(0, 30).map(v => `<div class="modal-list-item"><span>${esc(v.vessel)}</span><span>${esc(v.eta)} - ${esc(v.port)}</span></div>`).join('') : '<div class="empty">لا توجد بيانات</div>';
+  openModal('تفاصيل ' + userName, html);
+}
+
+function openRootCauseModal(causeName){
+  const rows = DATA.ncrAll.filter(n => n.rootCause === causeName);
+  const html = rows.length ? rows.map(n => `<div class="modal-list-item" style="cursor:pointer" onclick='closeModalNow();openNcrDetailModal(${JSON.stringify(n.number)})'><span>${esc(n.vessel)} (${esc(n.date)})</span><span>${esc(n.department)}</span></div>`).join('') : '<div class="empty">لا توجد حالات</div>';
+  openModal('حالات NCR - سبب: ' + causeName + ' (' + rows.length + ')', html);
+}
+
+function openDepartmentModal(deptName){
+  const rows = DATA.ncrAll.filter(n => n.department === deptName);
+  const html = rows.length ? rows.map(n => `<div class="modal-list-item" style="cursor:pointer" onclick='closeModalNow();openNcrDetailModal(${JSON.stringify(n.number)})'><span>${esc(n.vessel)} (${esc(n.date)})</span><span>${esc(n.rootCause)}</span></div>`).join('') : '<div class="empty">لا توجد حالات</div>';
+  openModal('حالات NCR - قسم: ' + deptName + ' (' + rows.length + ')', html);
+}
+
+function openNcrDetailModal(number){
+  const n = DATA.ncrAll.find(x => x.number === number);
+  if (!n) return;
+  let html = '';
+  html += modalRow('رقم NCR', n.number);
+  html += modalRow('التاريخ', n.date);
+  html += modalRow('المركب', n.vessel);
+  html += modalRow('وصف المشكلة', n.issue);
+  html += modalRow('الإجراء التصحيحي', n.corrective);
+  html += modalRow('مندوب مارين', n.marineRep);
+  html += modalRow('المورد', n.supplier);
+  html += modalRow('المسؤول', n.responsible);
+  html += modalRow('القسم', n.department);
+  html += modalRow('صادر بواسطة', n.issuedBy);
+  html += modalRow('الإجراء الوقائي', n.preventive);
+  html += modalRow('وصف عدم المطابقة', n.nonConformance);
+  html += modalRow('السبب الجذري', n.rootCause);
+  html += modalRow('ملاحظات', n.notes);
+  openModal('تفاصيل NCR رقم ' + n.number, html);
+}
+
+/* ================= FINISH OPS ================= */
+let foRawRows = null;
+let foFilters = { state: 'all', from: '', to: '', q: '' };
+let foSortKey = 'email', foSortDir = 'desc';
+
+function loadFinishOpsIfNeeded(){
+  if (foRawRows !== null) { renderFinishOpsAll(); return; }
+  document.getElementById('finishOpsLoading').style.display = 'block';
+  document.getElementById('finishOpsContent').style.display = 'none';
+  google.script.run.withSuccessHandler(onFinishOpsLoaded).withFailureHandler(onFinishOpsError).getFinishOpsData();
+}
+
+function onFinishOpsError(err){
+  document.getElementById('finishOpsLoading').innerHTML = '<span style="color:var(--bad)">حصل خطأ: ' + err.message + '</span>';
+}
+
+function onFinishOpsLoaded(res){
+  if (res.error) {
+    document.getElementById('finishOpsLoading').innerHTML = '<span style="color:var(--bad)">تعذّر جلب بيانات FINISH OPS: ' + res.error + '</span>';
+    return;
+  }
+  foRawRows = foParseRows(res.rows || []);
+  document.getElementById('finishOpsLoading').style.display = 'none';
+  document.getElementById('finishOpsContent').style.display = 'flex';
+  renderFinishOpsAll();
+}
+
+function foClassifyState(raw){
+  const s = (raw || '').trim().toUpperCase();
+  if (s === 'FALSE') return 'done';
+  if (s === 'TRUE') return 'pending';
+  if (s === 'HOLD') return 'hold';
+  return 'other';
+}
+
+function foParseRows(raw){
+  return raw.map(r => {
+    const emailDate = r.email ? new Date(r.email) : null;
+    const finishDate = r.finish ? new Date(r.finish) : null;
+    const stateKey = foClassifyState(r.state);
+    let durationMs = null;
+    if (emailDate && finishDate) durationMs = Math.abs(finishDate.getTime() - emailDate.getTime());
+    return { name: r.name || '', ops: r.ops || '', stateKey: stateKey, emailDate: emailDate, finishDate: finishDate, durationMs: durationMs };
+  });
+}
+
+function foFmtDate(d){
+  if (!d) return '—';
+  const p = n => String(n).padStart(2, '0');
+  let h = d.getHours(); const ap = h >= 12 ? 'م' : 'ص';
+  h = h % 12; if (h === 0) h = 12;
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(h)}:${p(d.getMinutes())} ${ap}`;
+}
+function foFmtDur(ms){
+  if (ms === null || ms === undefined) return '—';
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `${h}س ${m}د` : `${m}د`;
+}
+function foIsSameDay(d1, d2){ return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate(); }
+function foDateKey(d){ const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+
+function foApplyFilters(){
+  let rows = foRawRows.slice();
+  if (foFilters.state !== 'all') rows = rows.filter(r => r.stateKey === foFilters.state);
+  if (foFilters.from){ const from = new Date(foFilters.from + 'T00:00:00'); rows = rows.filter(r => r.emailDate && r.emailDate.getTime() >= from.getTime()); }
+  if (foFilters.to){ const to = new Date(foFilters.to + 'T23:59:59'); rows = rows.filter(r => r.emailDate && r.emailDate.getTime() <= to.getTime()); }
+  if (foFilters.q){
+    const q = foFilters.q.toLowerCase();
+    rows = rows.filter(r => r.name.toLowerCase().includes(q) || r.ops.toLowerCase().includes(q));
+  }
+  return rows;
+}
+
+function renderFinishOpsAll(){
+  const rows = foApplyFilters();
+  renderFinishOpsKpis(rows);
+  if (chartsAvailable) renderFinishOpsCharts(rows);
+  renderFinishOpsTable(rows);
+}
+
+function renderFinishOpsKpis(rows){
+  const total = rows.length;
+  const done = rows.filter(r => r.stateKey === 'done').length;
+  const pending = rows.filter(r => r.stateKey === 'pending').length;
+  const hold = rows.filter(r => r.stateKey === 'hold').length;
+  const today = new Date();
+  const todayCount = rows.filter(r => r.emailDate && foIsSameDay(r.emailDate, today)).length;
+  const durs = rows.filter(r => r.durationMs !== null);
+  const avgMs = durs.length ? durs.reduce((s, r) => s + r.durationMs, 0) / durs.length : null;
+  let maxRow = null;
+  durs.forEach(r => { if (!maxRow || r.durationMs > maxRow.durationMs) maxRow = r; });
+  const pct = n => total ? Math.round(n / total * 100) + '% من الإجمالي' : '—';
+
+  document.getElementById('foKpiTotal').textContent = total;
+  document.getElementById('foKpiDone').textContent = done;
+  document.getElementById('foKpiDonePct').textContent = pct(done);
+  document.getElementById('foKpiPending').textContent = pending;
+  document.getElementById('foKpiPendingPct').textContent = pct(pending);
+  document.getElementById('foKpiHold').textContent = hold;
+  document.getElementById('foKpiHoldPct').textContent = pct(hold);
+  document.getElementById('foKpiToday').textContent = todayCount;
+  document.getElementById('foKpiAvg').textContent = avgMs !== null ? foFmtDur(avgMs) : '—';
+  document.getElementById('foKpiMax').textContent = maxRow ? foFmtDur(maxRow.durationMs) : '—';
+  document.getElementById('foKpiMaxVessel').textContent = maxRow ? ('🚢 ' + maxRow.name) : 'لا توجد بيانات كافية';
+}
+
+function renderFinishOpsCharts(rows){
+  const t = themeVars(); const PALETTE = palette();
+
+  const durs = rows.filter(r => r.durationMs !== null).sort((a, b) => b.durationMs - a.durationMs).slice(0, 15);
+  const durLabels = durs.map(r => r.name);
+  const durData = durs.map(r => +(r.durationMs / 3600000).toFixed(2));
+  const ctx1 = document.getElementById('fo_chart_duration');
+  if (charts.fo_dur) charts.fo_dur.destroy();
+  if (ctx1) {
+    const plugins1 = { legend: { display: false } };
+    if (DATALABELS_AVAILABLE) plugins1.datalabels = { anchor: 'end', align: 'end', offset: 4, color: t.text, font: { weight: '700', size: 10 }, formatter: v => v + 'س' };
+    charts.fo_dur = new Chart(ctx1, {
+      type: 'bar',
+      data: { labels: durLabels, datasets: [{ data: durData, backgroundColor: PALETTE[0], borderRadius: 5, maxBarThickness: 16 }] },
+      options: { indexAxis: 'y', plugins: plugins1, scales: { x: { ticks: { color: t.text }, grid: { color: t.grid } }, y: { ticks: { color: t.text }, grid: { display: false } } } }
+    });
+  }
+
+  const dayMap = {};
+  rows.forEach(r => { if (r.emailDate) { const k = foDateKey(r.emailDate); dayMap[k] = (dayMap[k] || 0) + 1; } });
+  const dayKeys = Object.keys(dayMap).sort().slice(-14);
+  const dayLabels = dayKeys.map(k => { const p = k.split('-'); return p[2] + '/' + p[1]; });
+  const dayData = dayKeys.map(k => dayMap[k]);
+  const ctx2 = document.getElementById('fo_chart_daily');
+  if (charts.fo_daily) charts.fo_daily.destroy();
+  if (ctx2) {
+    const plugins2 = { legend: { display: false } };
+    if (DATALABELS_AVAILABLE) plugins2.datalabels = { anchor: 'end', align: 'top', offset: 2, color: t.text, font: { weight: '700', size: 10 } };
+    charts.fo_daily = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels: dayLabels, datasets: [{ data: dayData, backgroundColor: PALETTE[5], borderRadius: 4, maxBarThickness: 22 }] },
+      options: { plugins: plugins2, scales: { x: { ticks: { color: t.text }, grid: { display: false } }, y: { ticks: { color: t.text }, grid: { color: t.grid } } } }
+    });
+  }
+
+  const doneCount = rows.filter(r => r.stateKey === 'done').length;
+  const pendingCount = rows.filter(r => r.stateKey === 'pending').length;
+  const holdCount = rows.filter(r => r.stateKey === 'hold').length;
+  const otherCount = rows.filter(r => r.stateKey === 'other').length;
+  const stateLabels = ['منتهي', 'لسه هيتم', 'معلّق (Hold)'];
+  const stateData = [doneCount, pendingCount, holdCount];
+  const stateColors = ['#4FD08E', '#F0B84E', '#F0664F'];
+  if (otherCount > 0) { stateLabels.push('غير محدد'); stateData.push(otherCount); stateColors.push('#9FB3CC'); }
+  const ctx3 = document.getElementById('fo_chart_state');
+  if (charts.fo_state) charts.fo_state.destroy();
+  if (ctx3) {
+    const plugins3 = { legend: { position: 'bottom', labels: { color: t.text, font: { size: 11 } } } };
+    if (DATALABELS_AVAILABLE) plugins3.datalabels = { color: '#1a0f00', font: { weight: '700', size: 11 } };
+    charts.fo_state = new Chart(ctx3, {
+      type: 'doughnut',
+      data: { labels: stateLabels, datasets: [{ data: stateData, backgroundColor: stateColors, borderWidth: 0 }] },
+      options: { cutout: '68%', plugins: plugins3 }
+    });
+  }
+}
+
+function foSortRows(rows){
+  const dir = foSortDir === 'asc' ? 1 : -1;
+  return rows.slice().sort((a, b) => {
+    let va, vb;
+    switch (foSortKey) {
+      case 'name': return a.name.localeCompare(b.name) * dir;
+      case 'ops': return a.ops.localeCompare(b.ops) * dir;
+      case 'state': { const order = { hold: 0, pending: 1, other: 2, done: 3 }; return (order[a.stateKey] - order[b.stateKey]) * dir; }
+      case 'duration': va = a.durationMs ?? -1; vb = b.durationMs ?? -1; return (va - vb) * dir;
+      case 'finish': va = a.finishDate ? a.finishDate.getTime() : -1; vb = b.finishDate ? b.finishDate.getTime() : -1; return (va - vb) * dir;
+      default: va = a.emailDate ? a.emailDate.getTime() : -1; vb = b.emailDate ? b.emailDate.getTime() : -1; return (va - vb) * dir;
+    }
+  });
+}
+
+function renderFinishOpsTable(rows){
+  const sorted = foSortRows(rows);
+  const body = document.getElementById('foTableBody');
+  document.querySelectorAll('#panel-finishops .arrow').forEach(a => a.textContent = '');
+  const arrowEl = document.getElementById('fo-arrow-' + foSortKey);
+  if (arrowEl) arrowEl.textContent = foSortDir === 'asc' ? '▲' : '▼';
+
+  if (sorted.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="empty">لا توجد بيانات مطابقة للفلاتر الحالية</td></tr>';
+    return;
+  }
+  const badgeMap = {
+    done: '<span class="badge done">✅ منتهي</span>',
+    pending: '<span class="badge pending">⏳ لسه هيتم</span>',
+    hold: '<span class="badge hold">⚠️ معلّق</span>',
+    other: '<span class="badge other">❔ غير محدد</span>'
+  };
+  body.innerHTML = sorted.map(r => `
+    <tr>
+      <td>${esc(r.name)}</td>
+      <td class="mono">${esc(r.ops)}</td>
+      <td>${badgeMap[r.stateKey]}</td>
+      <td class="mono">${foFmtDate(r.emailDate)}</td>
+      <td class="mono">${foFmtDate(r.finishDate)}</td>
+      <td class="mono">${foFmtDur(r.durationMs)}</td>
+    </tr>
+  `).join('');
+}
+
+function showFoToast(msg, type){
+  const t = document.getElementById('foToast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(window._foToastTimer);
+  window._foToastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function exportFinishOpsExcel(){
+  const btn = document.getElementById('foExportBtn');
+  if (btn.disabled) return;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ جاري التحديث...';
+  showFoToast('⏳ جاري تحديث ملف الإكسيل...', '');
+  google.script.run
+    .withSuccessHandler(() => {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      showFoToast('✅ تم تحديث ملف الإكسيل بنجاح', 'success');
+    })
+    .withFailureHandler((err) => {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      showFoToast('❌ فشل التحديث: ' + (err && err.message ? err.message : err), 'error');
+    })
+    .exportFinishOpsToExcel();
+}
+
+loadData();
+</script>
+</body>
+</html>
