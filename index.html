@@ -255,10 +255,41 @@ function toggleTheme(){
   if (DATA) renderTab(activeTab);
 }
 
+/* ================= طبقة مصدر البيانات - بتشتغل في الحالتين =================
+   - جوه Apps Script (زرار الشيت أو رابط /exec): بتستخدم google.script.run زي الأول
+   - على GitHub Pages (استضافة ساكنة): بتقرا لقطة data.json اللي بيكتبها PublishToGitHub.gs
+   نفس الملف ده بالظبط بيتحط في المكانين - مفيش نسختين نفضل نزامنهم.
+========================================================================= */
+const IS_STATIC = (typeof google === 'undefined' || !google.script || !google.script.run);
+const STATIC_DATA_URL = 'data.json';
+let STATIC_PAYLOAD = null;
+
+function fetchStaticPayload(){
+  if (STATIC_PAYLOAD) return Promise.resolve(STATIC_PAYLOAD);
+  // كاش-باستر مهم: GitHub Pages بيكاش الملفات، من غيره ممكن تشوف لقطة قديمة
+  return fetch(STATIC_DATA_URL + '?t=' + Date.now(), { cache: 'no-store' })
+    .then(function(r){
+      if (!r.ok) throw new Error('مش عارف أجيب data.json (HTTP ' + r.status + ') - اتأكد إن الملف مرفوع في نفس فولدر index.html');
+      return r.json();
+    })
+    .then(function(p){ STATIC_PAYLOAD = p; return p; });
+}
+
 function loadData(){
   document.getElementById('content').innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
   document.getElementById('tabsNav').style.display = 'none';
-  google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onDataError).getDashboardData();
+  if (IS_STATIC){
+    STATIC_PAYLOAD = null;   // زرار "تحديث" لازم يجيب لقطة جديدة مش الكاش
+    foRawRows = null;        // وكمان يفضّي كاش تاب FINISH OPS
+    fetchStaticPayload()
+      .then(function(p){
+        if (!p || !p.dashboard) throw new Error('ملف data.json ناقص القسم dashboard');
+        onDataLoaded(p.dashboard);
+      })
+      .catch(onDataError);
+  } else {
+    google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onDataError).getDashboardData();
+  }
 }
 
 function onDataError(err){
@@ -755,9 +786,19 @@ let foSortKey = 'email', foSortDir = 'desc';
 
 function loadFinishOpsIfNeeded(){
   if (foRawRows !== null) { renderFinishOpsAll(); return; }
-  document.getElementById('finishOpsLoading').style.display = 'block';
+  const loadingEl = document.getElementById('finishOpsLoading');
+  loadingEl.style.display = 'block';
+  loadingEl.innerHTML = 'جاري تحميل البيانات...';   // بيمسح أي رسالة خطأ قديمة عند إعادة المحاولة
   document.getElementById('finishOpsContent').style.display = 'none';
-  google.script.run.withSuccessHandler(onFinishOpsLoaded).withFailureHandler(onFinishOpsError).getFinishOpsData();
+  if (IS_STATIC){
+    fetchStaticPayload()
+      .then(function(p){
+        onFinishOpsLoaded(p.finishOps || { rows: [], error: 'ملف data.json ناقص القسم finishOps' });
+      })
+      .catch(onFinishOpsError);
+  } else {
+    google.script.run.withSuccessHandler(onFinishOpsLoaded).withFailureHandler(onFinishOpsError).getFinishOpsData();
+  }
 }
 
 function onFinishOpsError(err){
@@ -966,6 +1007,11 @@ function showFoToast(msg, type){
 function exportFinishOpsExcel(){
   const btn = document.getElementById('foExportBtn');
   if (btn.disabled) return;
+  if (IS_STATIC){
+    // تصدير الإكسيل محتاج صلاحيات Drive، ومستحيل يشتغل من صفحة ساكنة على GitHub
+    showFoToast('⚠️ تحديث ملف الإكسيل متاح من داخل الشيت بس (زرار لوحة المؤشرات)، مش من نسخة GitHub', 'error');
+    return;
+  }
   const originalText = btn.textContent;
   btn.disabled = true;
   btn.textContent = '⏳ جاري التحديث...';
