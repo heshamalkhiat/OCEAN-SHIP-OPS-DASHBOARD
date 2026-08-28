@@ -9,15 +9,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
-  :root{
+  :root, body[data-theme="black"]{
+    --bg:#0A0A0A; --panel:#141414; --panel-2:#1C1C1C; --border:#2E2E2E;
+    --fg:#F2F2F2; --muted:#9C9C9C;
+    --good:#4FD08E; --warn:#F0B84E; --bad:#F0664F; --info:#F2A65A; --accent:#FF8A3D; --violet:#B78EE0; --blue:#7FB2FF;
+    --on-accent:#1A0F00; --accent-soft:rgba(255,138,61,.16);
+  }
+  body[data-theme="brown"]{
     --bg:#170F0A; --panel:#241A10; --panel-2:#2E2013; --border:#4A3218;
     --fg:#FBEEDD; --muted:#C9AA85;
     --good:#4FD08E; --warn:#F0B84E; --bad:#F0664F; --info:#F2A65A; --accent:#FF8A3D; --violet:#B78EE0; --blue:#7FB2FF;
+    --on-accent:#1A0F00; --accent-soft:rgba(255,138,61,.16);
   }
   body[data-theme="original"]{
     --bg:#0A1628; --panel:#0F2038; --panel-2:#15294A; --border:#26436E;
     --fg:#F5F8FC; --muted:#9FB3CC;
     --good:#3FD08E; --warn:#F0B84E; --bad:#F0664F; --info:#7FB2FF; --accent:#4FA8FF; --violet:#B78EE0; --blue:#7FB2FF;
+    --on-accent:#04101F; --accent-soft:rgba(79,168,255,.16);
   }
   *{box-sizing:border-box;}
   html,body{height:100%; margin:0;}
@@ -53,7 +61,7 @@
     background:transparent; color:var(--muted); border:1px solid var(--border);
     border-radius:8px; padding:8px 18px; font-size:13px; cursor:pointer; font-family:inherit;
   }
-  .tab-btn.active{background:var(--accent); color:#1a0f00; border-color:var(--accent); font-weight:700;}
+  .tab-btn.active{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:700;}
 
   .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;}
   .kpi{
@@ -120,7 +128,7 @@
   .modal-label{color:var(--muted); font-size:12px; white-space:nowrap;}
   .modal-value{font-weight:600; font-size:13px; text-align:left; word-break:break-word;}
   .modal-close{
-    background:var(--accent); color:#1a0f00; border:none; border-radius:8px;
+    background:var(--accent); color:var(--on-accent); border:none; border-radius:8px;
     padding:9px 20px; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
     margin-top:16px; width:100%;
   }
@@ -146,7 +154,7 @@
   .chip{background:var(--panel-2); border:1px solid var(--border); color:var(--muted);
     font-family:inherit; font-weight:700; font-size:12px; padding:8px 14px; border-radius:9px; cursor:pointer;}
   .chip:hover{border-color:var(--accent);}
-  .chip.active{background:rgba(255,138,61,.16); border-color:var(--accent); color:var(--accent);}
+  .chip.active{background:var(--accent-soft); border-color:var(--accent); color:var(--accent);}
   .field-input{background:var(--panel-2); border:1px solid var(--border); color:var(--fg);
     font-family:'JetBrains Mono',monospace; font-size:12px; padding:8px 10px; border-radius:9px; outline:none;}
   .field-input:focus{border-color:var(--accent);}
@@ -180,7 +188,7 @@
   }
 </style>
 </head>
-<body data-theme="orange">
+<body data-theme="black">
 <div class="wrap">
   <div class="toast" id="foToast"></div>
 
@@ -190,7 +198,7 @@
       <div class="sub" id="meta">جاري التحميل...</div>
     </div>
     <div class="actions">
-      <button class="btn" id="themeToggle" onclick="toggleTheme()">🔵 الثيم الأصلي</button>
+      <button class="btn" id="themeToggle" onclick="toggleTheme()">🧡 البرتقالي</button>
       <button class="btn" id="refreshBtn" onclick="manualRefresh()">🔄 تحديث</button>
     </div>
   </div>
@@ -231,11 +239,26 @@ let charts = {};
 let activeTab = 'overview';
 let chartsAvailable = (typeof Chart !== 'undefined');
 
+/* الألوان بتتقرا من متغيرات CSS بتاعة الثيم الشغال.
+   كده أي ثيم جديد بيتضاف في الـ CSS بس، من غير أي قايمة ألوان موازية نفضل نزامنها. */
+function cssVar(name, fallback){
+  try {
+    const v = getComputedStyle(document.body).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch (e) { return fallback; }
+}
+
 function palette(){
-  const isOrange = document.body.getAttribute('data-theme') === 'orange';
-  return isOrange
-    ? ['#FF8A3D', '#4FD08E', '#F0B84E', '#F0664F', '#B78EE0', '#7FB2FF', '#F29B4B', '#5CD6A9']
-    : ['#4FA8FF', '#3FD08E', '#F0B84E', '#F0664F', '#B78EE0', '#F29B4B', '#7FB2FF', '#5CD6A9'];
+  return [
+    cssVar('--accent', '#FF8A3D'),
+    cssVar('--good',   '#4FD08E'),
+    cssVar('--warn',   '#F0B84E'),
+    cssVar('--bad',    '#F0664F'),
+    cssVar('--violet', '#B78EE0'),
+    cssVar('--blue',   '#7FB2FF'),
+    cssVar('--info',   '#F2A65A'),
+    '#5CD6A9'
+  ];
 }
 
 function esc(s){ return (s === null || s === undefined || s === '') ? '-' : String(s); }
@@ -247,12 +270,44 @@ function isCurrentMonth(ts){
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-function toggleTheme(){
-  const body = document.body;
-  const isOrange = body.getAttribute('data-theme') === 'orange';
-  body.setAttribute('data-theme', isOrange ? 'original' : 'orange');
-  document.getElementById('themeToggle').innerText = isOrange ? '🧡 الثيم البرتقالي' : '🔵 الثيم الأصلي';
+/* الثيمات بالترتيب اللي الزرار بيلف عليه. الأسود هو الافتراضي.
+   عايز تزود ثيم؟ ضيف بلوك body[data-theme="..."] في الـ CSS وسطر هنا وخلاص. */
+const THEMES = [
+  { id: 'black',    label: '⚫ الأسود' },
+  { id: 'brown',    label: '🧡 البرتقالي' },
+  { id: 'original', label: '🔵 الأزرق' }
+];
+const THEME_STORAGE_KEY = 'oceanDashTheme';
+
+function themeIndex(id){
+  for (let i = 0; i < THEMES.length; i++) { if (THEMES[i].id === id) return i; }
+  return 0;
+}
+
+function applyTheme(id, persist){
+  const idx = themeIndex(id);
+  document.body.setAttribute('data-theme', THEMES[idx].id);
+  // الزرار بيوري الثيم اللي جاي بعد الضغط - نفس السلوك القديم
+  const next = THEMES[(idx + 1) % THEMES.length];
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.innerText = next.label;
+  if (persist){
+    try { localStorage.setItem(THEME_STORAGE_KEY, THEMES[idx].id); } catch (e) {}
+  }
   if (DATA) renderTab(activeTab);
+}
+
+function toggleTheme(){
+  const current = document.body.getAttribute('data-theme');
+  const next = THEMES[(themeIndex(current) + 1) % THEMES.length];
+  applyTheme(next.id, true);
+}
+
+// بيرجّع آخر ثيم المستخدم اختاره، ولو مفيش يبدأ بالأسود
+function initTheme(){
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch (e) {}
+  applyTheme(saved || 'black', false);
 }
 
 /* ================= طبقة مصدر البيانات - بتشتغل في الحالتين =================
@@ -631,10 +686,9 @@ function renderTab(tab){
 }
 
 function themeVars(){
-  const t = document.body.getAttribute('data-theme');
   return {
-    text: t === 'orange' ? '#FBEEDD' : '#F5F8FC',
-    grid: t === 'orange' ? '#4A3218' : '#26436E'
+    text: cssVar('--fg', '#F2F2F2'),
+    grid: cssVar('--border', '#2E2E2E')
   };
 }
 
@@ -1014,7 +1068,7 @@ function renderFinishOpsCharts(rows){
   if (charts.fo_state) charts.fo_state.destroy();
   if (ctx3) {
     const plugins3 = { legend: { position: 'bottom', labels: { color: t.text, font: { size: 11 } } } };
-    if (DATALABELS_AVAILABLE) plugins3.datalabels = { color: '#1a0f00', font: { weight: '700', size: 11 } };
+    if (DATALABELS_AVAILABLE) plugins3.datalabels = { color: cssVar('--on-accent', '#1A0F00'), font: { weight: '700', size: 11 } };
     charts.fo_state = new Chart(ctx3, {
       type: 'doughnut',
       data: { labels: stateLabels, datasets: [{ data: stateData, backgroundColor: stateColors, borderWidth: 0 }] },
@@ -1101,6 +1155,7 @@ function exportFinishOpsExcel(){
     .exportFinishOpsToExcel();
 }
 
+initTheme();
 loadData();
 startAutoRefresh();
 </script>
