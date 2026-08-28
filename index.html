@@ -191,7 +191,7 @@
     </div>
     <div class="actions">
       <button class="btn" id="themeToggle" onclick="toggleTheme()">🔵 الثيم الأصلي</button>
-      <button class="btn" onclick="loadData()">🔄 تحديث</button>
+      <button class="btn" id="refreshBtn" onclick="manualRefresh()">🔄 تحديث</button>
     </div>
   </div>
 
@@ -262,7 +262,13 @@ function toggleTheme(){
 ========================================================================= */
 const IS_STATIC = (typeof google === 'undefined' || !google.script || !google.script.run);
 const STATIC_DATA_URL = 'data.json';
+
+// كل كام دقيقة الصفحة تحدّث نفسها لوحدها وهي مفتوحة. حط 0 لو عايز تقفل الميزة.
+const AUTO_REFRESH_MINUTES = 30;
+
 let STATIC_PAYLOAD = null;
+let autoRefreshTimer = null;
+let lastFetchAt = null;
 
 function fetchStaticPayload(){
   if (STATIC_PAYLOAD) return Promise.resolve(STATIC_PAYLOAD);
@@ -275,21 +281,82 @@ function fetchStaticPayload(){
     .then(function(p){ STATIC_PAYLOAD = p; return p; });
 }
 
-function loadData(){
-  document.getElementById('content').innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
-  document.getElementById('tabsNav').style.display = 'none';
-  if (IS_STATIC){
-    STATIC_PAYLOAD = null;   // زرار "تحديث" لازم يجيب لقطة جديدة مش الكاش
-    foRawRows = null;        // وكمان يفضّي كاش تاب FINISH OPS
-    fetchStaticPayload()
-      .then(function(p){
-        if (!p || !p.dashboard) throw new Error('ملف data.json ناقص القسم dashboard');
-        onDataLoaded(p.dashboard);
-      })
-      .catch(onDataError);
-  } else {
-    google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onDataError).getDashboardData();
+/* ===== محرك التحديث =====
+   silent = false → بيفضّي الشاشة ويوري "جاري التحميل" (الضغط اليدوي والتحميل الأول)
+   silent = true  → بيحدّث في الخلفية من غير أي وميض، والمستخدم يفضل في نفس التاب */
+function refreshData(silent){
+  if (!silent){
+    document.getElementById('content').innerHTML = '<div class="loading">جاري تحميل البيانات...</div>';
+    document.getElementById('tabsNav').style.display = 'none';
   }
+
+  if (!IS_STATIC){
+    return new Promise(function(resolve){
+      google.script.run
+        .withSuccessHandler(function(d){ applyLoadedData(d); resolve(); })
+        .withFailureHandler(function(err){
+          if (!silent) onDataError(err);
+          resolve();
+        })
+        .getDashboardData();
+    });
+  }
+
+  STATIC_PAYLOAD = null;   // إجباري: من غيره هيرجع نفس النسخة المحفوظة في الذاكرة
+  foRawRows = null;        // وكمان يفضّي كاش تاب FINISH OPS
+  return fetchStaticPayload()
+    .then(function(p){
+      if (!p || !p.dashboard) throw new Error('ملف data.json ناقص القسم dashboard');
+      applyLoadedData(p.dashboard);
+    })
+    .catch(function(err){
+      if (!silent) onDataError(err);
+      else console.warn('التحديث التلقائي فشل، الشاشة سايبة زي ما هي:', err.message);
+    });
+}
+
+function applyLoadedData(data){
+  onDataLoaded(data);
+  if (DATA){
+    switchTab(activeTab);                                  // نرجّع المستخدم لنفس التاب اللي كان فيه
+    if (activeTab === 'finishOps') loadFinishOpsIfNeeded(); // وده تابه بيتحمل لوحده
+  }
+}
+
+// زرار التحديث اليدوي
+function manualRefresh(){
+  const btn = document.getElementById('refreshBtn');
+  if (btn && btn.disabled) return;
+  let originalText = '';
+  if (btn){
+    originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري التحديث...';
+  }
+  const restore = function(){
+    if (btn){ btn.disabled = false; btn.textContent = originalText; }
+  };
+  refreshData(false).then(restore, restore);
+}
+
+function startAutoRefresh(){
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  if (!AUTO_REFRESH_MINUTES) return;
+  autoRefreshTimer = setInterval(function(){
+    if (document.hidden) return;   // التاب في الخلفية - مفيش داعي نستهلك، هنحدّث لما يرجع
+    refreshData(true);
+  }, AUTO_REFRESH_MINUTES * 60 * 1000);
+}
+
+// لو التاب كان في الخلفية فترة طويلة، نحدّث فور ما المستخدم يرجع له
+document.addEventListener('visibilitychange', function(){
+  if (document.hidden || !lastFetchAt || !AUTO_REFRESH_MINUTES) return;
+  const minutesPassed = (Date.now() - lastFetchAt.getTime()) / 60000;
+  if (minutesPassed >= AUTO_REFRESH_MINUTES) refreshData(true);
+});
+
+function loadData(){
+  return refreshData(false);
 }
 
 function onDataError(err){
@@ -303,7 +370,11 @@ function onDataLoaded(data){
     return;
   }
   DATA = data;
-  document.getElementById('meta').innerText = 'آخر تحديث: ' + data.generatedAt;
+  lastFetchAt = new Date();
+  let metaTxt = 'آخر تحديث للبيانات: ' + data.generatedAt;
+  metaTxt += ' • آخر قراءة: ' + lastFetchAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (AUTO_REFRESH_MINUTES) metaTxt += ' • تحديث تلقائي كل ' + AUTO_REFRESH_MINUTES + ' دقيقة';
+  document.getElementById('meta').innerText = metaTxt;
   document.getElementById('tabsNav').style.display = 'flex';
   buildLayout();
   renderMarineTable();
@@ -1031,6 +1102,7 @@ function exportFinishOpsExcel(){
 }
 
 loadData();
+startAutoRefresh();
 </script>
 </body>
 </html>
